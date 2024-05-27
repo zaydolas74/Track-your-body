@@ -1,100 +1,103 @@
-let video;
-let handpose;
-let predictions = [];
-let balloon = null; // Declare a single balloon object
+let videoStream;
+let handenModel;
+let voorspellingen = [];
+let ballon = null;
+let ballonAfbeelding;
 let score = 0;
-let lastBalloonChangeTime = 0;
-const balloonVisibleTime = 5000; // Time in milliseconds for which the balloon remains visible
-const balloonChangeInterval = 2000; // Interval in milliseconds for changing balloon position
-let balloonTouched = false; // Variable to track if balloon is touched
+let laatsteBallonVeranderingTijd = 0;
+const zichtbareTijdBallon = 5000;
+const intervalVeranderingBallon = 2000;
+let ballonAangeraakt = false;
+
+function preload() {
+  ballonAfbeelding = loadImage("balloon.png");
+}
 
 function setup() {
   createCanvas(640, 480);
-  video = createCapture(VIDEO);
-  video.hide();
-  handpose = ml5.handpose(video, modelLoaded);
-  handpose.on("predict", gotPredictions);
+  videoStream = createCapture(VIDEO);
+  videoStream.hide();
+  handenModel = ml5.handpose(videoStream, modelGeladen);
+  handenModel.on("predict", voorspellingOntvangen);
 }
 
-function modelLoaded() {
-  console.log("Model Loaded!");
+function modelGeladen() {
+  console.log("Model Geladen!");
 }
 
-function gotPredictions(results) {
-  predictions = results;
+function voorspellingOntvangen(resultaten) {
+  voorspellingen = resultaten;
 }
 
-function spawnBalloon() {
-  balloon = {
+function nieuweBallon() {
+  ballon = {
     x: random(width),
-    y: random(height * 0.5, height * 0.8), // Spawn balloons randomly between 50% and 80% of canvas height
-    size: random(30, 50),
-    popped: false,
-    spawnTime: millis(), // Record the spawn time of the balloon
+    y: random(height * 0.5, height * 0.8),
+    grootte: random(80, 100),
+    gepopt: false,
+    spawnTijd: millis(),
   };
-  balloonTouched = false; // Reset the balloonTouched variable
+  ballonAangeraakt = false;
 }
 
 function draw() {
-  background(220);
-  image(video, 0, 0, width, height);
+  image(videoStream, 0, 0, width, height);
 
-  // Loop through all predictions
-  for (let i = 0; i < predictions.length; i++) {
-    let hand = predictions[i];
-
-    // Loop through all fingers
+  for (let i = 0; i < voorspellingen.length; i++) {
+    let hand = voorspellingen[i];
     for (let j = 0; j < hand.annotations.indexFinger.length; j++) {
-      let fingerTip = hand.annotations.indexFinger[j];
-      let x = fingerTip[0];
-      let y = fingerTip[1];
-
-      // Draw a circle at finger tip
+      let vingertop = hand.annotations.indexFinger[j];
+      let x = vingertop[0];
+      let y = vingertop[1];
       fill(0, 255, 0);
       ellipse(x, y, 20, 20);
     }
-
-    // Check if finger tips touch the balloon
-    if (balloon && !balloonTouched) {
+    if (ballon && !ballonAangeraakt) {
       for (let j = 0; j < hand.annotations.indexFinger.length; j++) {
-        let fingerTip = hand.annotations.indexFinger[j];
-        let x = fingerTip[0];
-        let y = fingerTip[1];
-        let d = dist(x, y, balloon.x, balloon.y);
-        if (d < balloon.size / 2) {
-          balloonTouched = true;
-          if (!balloon.popped) {
-            balloon.popped = true;
-            score++; // Increase score only if the balloon is not popped yet
+        let vingertop = hand.annotations.indexFinger[j];
+        let x = vingertop[0];
+        let y = vingertop[1];
+        let d = dist(x, y, ballon.x, ballon.y);
+        if (d < ballon.grootte / 2) {
+          ballonAangeraakt = true;
+          if (!ballon.gepopt) {
+            ballon.gepopt = true;
+            score++;
           }
         }
       }
     }
   }
 
-  // Display and update the balloon
-  if (balloon) {
-    if (!balloon.popped) {
-      fill(255, 0, 0);
-      noStroke();
-      ellipse(balloon.x, balloon.y, balloon.size, balloon.size);
+  if (ballon) {
+    if (!ballon.gepopt) {
+      let aspectRatio = ballonAfbeelding.width / ballonAfbeelding.height;
+      let ballonHoogte = ballon.grootte;
+      let ballonBreedte = ballonHoogte * aspectRatio;
+      image(
+        ballonAfbeelding,
+        ballon.x - ballonBreedte / 2,
+        ballon.y - ballonHoogte / 2,
+        ballonBreedte,
+        ballonHoogte
+      );
     }
   }
 
-  // Remove the balloon after balloonVisibleTime milliseconds
-  if (balloon && millis() - balloon.spawnTime > balloonVisibleTime) {
-    balloon = null;
-    lastBalloonChangeTime = millis(); // Record the time of balloon disappearance
+  if (ballon && millis() - ballon.spawnTijd > zichtbareTijdBallon) {
+    ballon = null;
+    laatsteBallonVeranderingTijd = millis();
   }
 
-  // Display score
   textSize(24);
   fill(0);
   textAlign(LEFT, TOP);
   text("Score: " + score, 10, 10);
 
-  // Change balloon position after balloonChangeInterval milliseconds
-  if (millis() - lastBalloonChangeTime > balloonChangeInterval && !balloon) {
-    spawnBalloon();
+  if (
+    millis() - laatsteBallonVeranderingTijd > intervalVeranderingBallon &&
+    !ballon
+  ) {
+    nieuweBallon();
   }
 }
